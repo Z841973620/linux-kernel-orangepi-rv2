@@ -46,15 +46,9 @@ of_hotplug_cooling_register(struct cpufreq_policy *policy);
 #define TURBO1_FREQUENCY		(3200000000)
 #define STABLE_FREQUENCY		(1200000000)
 
-#define FILTER_POINTS_0			(135)
-#define FILTER_POINTS_1			(142)
-
-#define K1_MAX_FREQ_LIMITATION		(1600000)
-#define M1_MAX_FREQ_LIMITATION		(1800000)
+#define MAX_FREQ_LIMITATION		(1800000)
 
 #endif
-
-#define PRODUCT_ID_M1			(0x36070000)
 
 static int ky_policy_notifier(struct notifier_block *nb,
                                   unsigned long event, void *data)
@@ -427,18 +421,7 @@ int spacmeit_cpufreq_veritfy(struct cpufreq_policy_data *policy)
 	if (!policy->freq_table)
 		return -ENODEV;
 
-	if ((wafer_prop << 16 | product_prop) == PRODUCT_ID_M1) {
-		/* M1 */
-		/* can update to 1.8G */
-		cpufreq_verify_within_limits(policy, policy->cpuinfo.min_freq,
-					policy->cpuinfo.max_freq);
-	} else {
-		/* K1 */
-		/* only 1.6G allowed max */
-		policy->max = policy->max > K1_MAX_FREQ_LIMITATION ? K1_MAX_FREQ_LIMITATION : policy->max;
-		cpufreq_verify_within_limits(policy, policy->cpuinfo.min_freq,
-					K1_MAX_FREQ_LIMITATION);
-	}
+	cpufreq_verify_within_limits(policy, policy->cpuinfo.min_freq, MAX_FREQ_LIMITATION);
 
 	cpufreq_for_each_valid_entry(pos, policy->freq_table) {
 		freq = pos->frequency;
@@ -465,16 +448,7 @@ int spacmeit_cpufreq_veritfy(struct cpufreq_policy_data *policy)
 extern void remove_boost_sysfs_file(void);
 extern void remove_policy_boost_sysfs_file(struct cpufreq_policy *policy);
 
-void ky_cpufreq_ready(struct cpufreq_policy *policy)
-{
-	if ((wafer_prop << 16 | product_prop) == PRODUCT_ID_M1) {
-		/* M1 */
-	} else {
-		/* K1 or other */
-		remove_policy_boost_sysfs_file(policy);
-		remove_boost_sysfs_file();
-	}
-}
+void ky_cpufreq_ready(struct cpufreq_policy *policy) {}
 
 #endif
 
@@ -504,21 +478,8 @@ static int ky_dt_cpufreq_pre_probe(struct platform_device *pdev)
 	}
 
 #ifdef CONFIG_SOC_KY_X1
-	if ((wafer_prop << 16 | product_prop) == PRODUCT_ID_M1) {
-		for_each_possible_cpu(cpu) {
-			if (prop <= FILTER_POINTS_0)
-				ky_dt_cpufreq_pre_early_init(&pdev->dev, cpu, FREQ_TABLE_0);
-			else if (prop <= FILTER_POINTS_1)
-				ret = ky_dt_cpufreq_pre_early_init(&pdev->dev, cpu, FREQ_TABLE_1);
-			else
-				ret = ky_dt_cpufreq_pre_early_init(&pdev->dev, cpu, FREQ_TABLE_2);
-			if (ret)
-				ky_dt_cpufreq_pre_early_init(&pdev->dev, cpu, FREQ_TABLE_0);
-		}
-	} else {
-		for_each_possible_cpu(cpu) {
-			ky_dt_cpufreq_pre_early_init(&pdev->dev, cpu, FREQ_TABLE_0);
-		}
+	for_each_possible_cpu(cpu) {
+		ret = ky_dt_cpufreq_pre_early_init(&pdev->dev, cpu, FREQ_TABLE_1);
 	}
 #endif
 
